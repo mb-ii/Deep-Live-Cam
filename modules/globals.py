@@ -41,3 +41,7 @@ show_mouth_mask_box = False
 mask_feather_ratio = 8
 mask_down_size = 0.50
 mask_size = 1
+
+# Remote GPU
+use_remote_gpu = False
+remote_gpu_url = "http://localhost:9999"

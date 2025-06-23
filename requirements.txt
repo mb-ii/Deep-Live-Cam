@@ -19,3 +19,6 @@ onnxruntime-gpu==1.17; sys_platform != 'darwin'
 tensorflow; sys_platform != 'darwin'
 opennsfw2==0.10.2
 protobuf==4.23.2
+fastapi==0.104.1
+uvicorn==0.24.0
+requests==2.31.0

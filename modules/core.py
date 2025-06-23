@@ -50,6 +50,8 @@ def parse_args() -> None:
     program.add_argument('--max-memory', help='maximum amount of RAM in GB', dest='max_memory', type=int, default=suggest_max_memory())
     program.add_argument('--execution-provider', help='execution provider', dest='execution_provider', default=['cpu'], choices=suggest_execution_providers(), nargs='+')
     program.add_argument('--execution-threads', help='number of execution threads', dest='execution_threads', type=int, default=suggest_execution_threads())
+    program.add_argument('--remote-gpu', help='use remote GPU server', dest='use_remote_gpu', action='store_true', default=False)
+    program.add_argument('--remote-gpu-url', help='remote GPU server URL', dest='remote_gpu_url', default='http://localhost:9999')
     program.add_argument('-v', '--version', action='version', version=f'{modules.metadata.name} {modules.metadata.version}')
 
     # register deprecated args
@@ -80,6 +82,8 @@ def parse_args() -> None:
     modules.globals.execution_providers = decode_execution_providers(args.execution_provider)
     modules.globals.execution_threads = args.execution_threads
     modules.globals.lang = args.lang
+    modules.globals.use_remote_gpu = args.use_remote_gpu
+    modules.globals.remote_gpu_url = args.remote_gpu_url
 
     #for ENHANCER tumbler:
     if 'face_enhancer' in args.frame_processor:

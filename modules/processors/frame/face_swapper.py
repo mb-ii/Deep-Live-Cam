@@ -16,10 +16,56 @@ from modules.utilities import (
 )
 from modules.cluster_analysis import find_closest_centroid
 import os
+import requests
+import base64
 
 FACE_SWAPPER = None
 THREAD_LOCK = threading.Lock()
 NAME = "DLC.FACE-SWAPPER"
+
+class RemoteFaceSwapper:
+    def __init__(self, url):
+        self.url = url
+
+    def get(self, temp_frame, target_face, source_face, paste_back=True):
+        # Encode image
+        _, buffer = cv2.imencode('.png', temp_frame)
+        img_b64 = base64.b64encode(buffer).decode('utf-8')
+
+        # Serialize faces
+        source_dict = {
+            'bbox': source_face.bbox.astype(np.float32).tolist(),
+            'kps': source_face.kps.astype(np.float32).tolist(),
+            'det_score': float(source_face.det_score),
+            'embedding': source_face.embedding.astype(np.float32).tolist(),
+            'normed_embedding': source_face.normed_embedding.astype(np.float32).tolist(),
+            'gender': int(source_face.gender),
+            'age': int(source_face.age)
+        }
+        target_dict = {
+            'bbox': target_face.bbox.astype(np.float32).tolist(),
+            'kps': target_face.kps.astype(np.float32).tolist(),
+            'det_score': float(target_face.det_score),
+            'embedding': target_face.embedding.astype(np.float32).tolist(),
+            'normed_embedding': target_face.normed_embedding.astype(np.float32).tolist(),
+            'gender': int(target_face.gender),
+            'age': int(target_face.age)
+        }
+
+        # Make request
+        response = requests.post(f"{self.url}/swap_face", json={
+            'image': img_b64,
+            'source_face': source_dict,
+            'target_face': target_dict
+        })
+
+        if response.status_code != 200:
+            raise Exception(f"Remote server error: {response.status_code} details: {response.text}")
+
+        result_b64 = response.json()['result']
+        result_data = base64.b64decode(result_b64)
+        nparr = np.frombuffer(result_data, np.uint8)
+        return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
 abs_dir = os.path.dirname(os.path.abspath(__file__))
 models_dir = os.path.join(
@@ -60,6 +106,17 @@ def get_face_swapper() -> Any:
 
     with THREAD_LOCK:
         if FACE_SWAPPER is None:
+            if modules.globals.use_remote_gpu:
+                try:
+                    # Test connection to remote server
+                    response = requests.get(f"{modules.globals.remote_gpu_url}/health", timeout=5)
+                    if response.status_code == 200:
+                        update_status("Using remote GPU server", NAME)
+                        FACE_SWAPPER = RemoteFaceSwapper(modules.globals.remote_gpu_url)
+                        return FACE_SWAPPER
+                except Exception as e:
+                    update_status(f"Remote GPU unavailable, using local: {e}", NAME)
+
             model_path = os.path.join(models_dir, "inswapper_128_fp16.onnx")
             FACE_SWAPPER = insightface.model_zoo.get_model(
                 model_path, providers=modules.globals.execution_providers
